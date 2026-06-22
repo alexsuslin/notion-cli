@@ -14,13 +14,13 @@ from notion_cli.exec import run_command
 from notion_cli.render import (
     RenderedCommand,
     render_api_passthrough,
-    render_database_query,
     render_datasource_query,
     render_doctor,
     render_exec_passthrough,
     render_login,
     render_page_create,
     render_page_update,
+    render_query,
 )
 from notion_cli.resolver import resolve_datasource, resolve_page, resolve_preset
 from notion_cli.youtube import fetch_youtube_metadata
@@ -241,7 +241,15 @@ def datasource_query(
     project = _config_from_context(ctx)
     datasource = resolve_datasource(project, name)
     env = _command_env(project)
-    _run(render_datasource_query(datasource.id, env=env), dry_run=dry_run)
+    _run(
+        render_datasource_query(
+            datasource.id,
+            query_endpoint=datasource.query_endpoint,
+            notion_version=datasource.effective_notion_version(),
+            env=env,
+        ),
+        dry_run=dry_run,
+    )
 
 
 @preset_app.command("run")
@@ -259,7 +267,7 @@ def preset_run(
     if preset.youtube_enabled:
         if url is None:
             raise typer.BadParameter("--url is required for YouTube-enabled presets")
-        metadata = fetch_youtube_metadata(url)
+        metadata = fetch_youtube_metadata(url, project.youtube)
         fields["link"] = metadata.url
         fields["title"] = metadata.title
         fields["length"] = metadata.length
@@ -268,7 +276,15 @@ def preset_run(
         fields["title"] = title
 
     env = _command_env(project, workspace_id=preset.workspace_id)
-    _run(render_page_create(preset, fields, env=env), dry_run=dry_run)
+    _run(
+        render_page_create(
+            preset,
+            fields,
+            notion_version=preset.notion_version,
+            env=env,
+        ),
+        dry_run=dry_run,
+    )
 
 
 @item_app.command("add-youtube")
@@ -291,7 +307,7 @@ def item_add_youtube(
     if preset.datasource_id is None:
         raise ConfigError(f"preset '{preset_name}' does not resolve to a datasource")
 
-    metadata = fetch_youtube_metadata(url)
+    metadata = fetch_youtube_metadata(url, project_config.youtube)
     property_values: dict[str, object] = {
         "title": metadata.title,
         "link": metadata.url,
@@ -315,7 +331,13 @@ def item_add_youtube(
 
     env = _command_env(project_config, workspace_id=preset.workspace_id)
     property_inputs = _property_inputs(preset.property_map, property_values)
-    create_command = render_page_create(preset, {}, env=env, property_inputs=property_inputs)
+    create_command = render_page_create(
+        preset,
+        {},
+        notion_version=preset.notion_version,
+        env=env,
+        property_inputs=property_inputs,
+    )
 
     if not upsert:
         _run(create_command, dry_run=dry_run)
@@ -329,8 +351,19 @@ def item_add_youtube(
         f"filter[url][equals]={metadata.url}",
         "page_size:=1",
     ]
-    query_command = render_database_query(preset.datasource_id, query_inputs, env=env)
-    update_command = render_page_update("<page_id>", property_inputs, env=env)
+    query_command = render_query(
+        preset.datasource_id,
+        query_endpoint=preset.query_endpoint,
+        body_inputs=query_inputs,
+        notion_version=preset.notion_version,
+        env=env,
+    )
+    update_command = render_page_update(
+        "<page_id>",
+        property_inputs,
+        notion_version=preset.notion_version,
+        env=env,
+    )
     if dry_run:
         typer.echo(_upsert_plan(query_command, update_command, create_command))
         return
@@ -345,7 +378,14 @@ def item_add_youtube(
         page_id = first_result.get("id")
         if not isinstance(page_id, str) or not page_id:
             raise RuntimeCommandError("page query result did not include an id")
-        update_result = _require_json_output(render_page_update(page_id, property_inputs, env=env))
+        update_result = _require_json_output(
+            render_page_update(
+                page_id,
+                property_inputs,
+                notion_version=preset.notion_version,
+                env=env,
+            )
+        )
         typer.echo(_page_summary(update_result))
         return
 

@@ -12,6 +12,19 @@ class RenderedCommand:
     env: dict[str, str] = field(default_factory=dict)
 
 
+def _api_args(notion_version: str | None = None) -> list[str]:
+    args = ["ntn", "api"]
+    if notion_version:
+        args.extend(["--notion-version", notion_version])
+    return args
+
+
+def _query_path(query_id: str, query_endpoint: str) -> str:
+    if query_endpoint == "data_source":
+        return f"v1/data_sources/{query_id}/query"
+    return f"v1/databases/{query_id}/query"
+
+
 def render_api_passthrough(args: list[str], env: dict[str, str] | None = None) -> RenderedCommand:
     return RenderedCommand(args=["ntn", "api", *args], env=env or {})
 
@@ -30,10 +43,31 @@ def render_doctor(env: dict[str, str] | None = None) -> RenderedCommand:
 
 def render_datasource_query(
     datasource_id: str,
+    query_endpoint: str = "database",
+    notion_version: str | None = None,
     env: dict[str, str] | None = None,
 ) -> RenderedCommand:
     return RenderedCommand(
-        args=["ntn", "api", "-X", "POST", f"v1/databases/{datasource_id}/query"],
+        args=[*_api_args(notion_version), "-X", "POST", _query_path(datasource_id, query_endpoint)],
+        env=env or {},
+    )
+
+
+def render_query(
+    query_id: str,
+    query_endpoint: str = "database",
+    body_inputs: Sequence[str] | None = None,
+    notion_version: str | None = None,
+    env: dict[str, str] | None = None,
+) -> RenderedCommand:
+    return RenderedCommand(
+        args=[
+            *_api_args(notion_version),
+            "-X",
+            "POST",
+            _query_path(query_id, query_endpoint),
+            *(body_inputs or []),
+        ],
         env=env or {},
     )
 
@@ -41,28 +75,26 @@ def render_datasource_query(
 def render_database_query(
     database_id: str,
     body_inputs: Sequence[str] | None = None,
+    notion_version: str | None = None,
     env: dict[str, str] | None = None,
 ) -> RenderedCommand:
-    return RenderedCommand(
-        args=[
-            "ntn",
-            "api",
-            "-X",
-            "POST",
-            f"v1/databases/{database_id}/query",
-            *(body_inputs or []),
-        ],
-        env=env or {},
+    return render_query(
+        database_id,
+        query_endpoint="database",
+        body_inputs=body_inputs,
+        notion_version=notion_version,
+        env=env,
     )
 
 
 def render_page_update(
     page_id: str,
     property_inputs: Sequence[str],
+    notion_version: str | None = None,
     env: dict[str, str] | None = None,
 ) -> RenderedCommand:
     return RenderedCommand(
-        args=["ntn", "api", "-X", "PATCH", f"v1/pages/{page_id}", *property_inputs],
+        args=[*_api_args(notion_version), "-X", "PATCH", f"v1/pages/{page_id}", *property_inputs],
         env=env or {},
     )
 
@@ -70,10 +102,11 @@ def render_page_update(
 def render_page_create(
     preset: ResolvedPreset,
     fields: dict[str, str],
+    notion_version: str | None = None,
     env: dict[str, str] | None = None,
     property_inputs: Sequence[str] | None = None,
 ) -> RenderedCommand:
-    args = ["ntn", "api", "v1/pages", f"parent[database_id]={preset.datasource_id}"]
+    args = [*_api_args(notion_version), "v1/pages", f"parent[database_id]={preset.datasource_id}"]
     encoders = {
         "title": lambda prop, value: f"properties[{prop}][title][0][text][content]={value}",
         "link": lambda prop, value: f"properties[{prop}][url]={value}",

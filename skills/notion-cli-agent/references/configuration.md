@@ -60,10 +60,14 @@ id = "page-id-here"
 [datasources.items]
 id = "data-source-id-here"
 title_property = "Name"
+query_endpoint = "database"
+notion_version = "2022-06-28"
 ```
 
 - `id`: required live datasource ID
 - `title_property`: logical title field name, default `Name`
+- `query_endpoint`: `database` for legacy `v1/databases/.../query` or `data_source` for `v1/data_sources/.../query`
+- `notion_version`: optional explicit Notion API version; legacy database queries default to `2022-06-28`
 
 ### `[datasources.<alias>.properties]`
 
@@ -124,7 +128,10 @@ provider = "no_key"
 timeout_seconds = 10
 ```
 
-The current implementation uses `yt-dlp` and does not require API credentials.
+- `provider = "no_key"` uses `yt-dlp` first
+- if `YOUTUBE_API_KEY` is present and `yt-dlp` fails, the CLI falls back to the YouTube Data API
+- `provider = "api_key"` forces the YouTube Data API and requires `YOUTUBE_API_KEY`
+- `timeout_seconds` applies to both provider paths
 
 ## Maintenance Notes
 

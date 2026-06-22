@@ -135,7 +135,38 @@ def test_datasource_query_dry_run_works_without_workspace_id(tmp_path: Path) -> 
     )
 
     assert result.exit_code == 0
-    assert result.stdout.strip() == "ntn api -X POST v1/databases/ds-123/query"
+    assert (
+        result.stdout.strip()
+        == "ntn api --notion-version 2022-06-28 -X POST v1/databases/ds-123/query"
+    )
+
+
+def test_datasource_query_dry_run_supports_data_source_endpoint(tmp_path: Path) -> None:
+    config_path = tmp_path / "notion-cli.toml"
+    config_path.write_text(
+        """
+        [notion]
+        default_workspace = "personal"
+
+        [workspaces.personal]
+
+        [datasources.items]
+        id = "ds-123"
+        query_endpoint = "data_source"
+        title_property = "Name"
+        [datasources.items.properties]
+        title = "Name"
+        """.strip(),
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        ["--config", str(config_path), "datasource", "query", "items", "--dry-run"],
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout.strip() == "ntn api -X POST v1/data_sources/ds-123/query"
 
 
 def test_preset_run_adds_youtube_fields(tmp_path: Path) -> None:
@@ -162,6 +193,7 @@ def test_preset_run_adds_youtube_fields(tmp_path: Path) -> None:
         )
 
     assert result.exit_code == 0
+    assert "ntn api --notion-version 2022-06-28 v1/pages" in result.stdout
     assert "parent[database_id]=ds-123" in result.stdout
     assert "properties[Name][title][0][text][content]=Video Title" in result.stdout
 
@@ -197,6 +229,7 @@ def test_item_add_youtube_dry_run_supports_rich_fields(tmp_path: Path) -> None:
         )
 
     assert result.exit_code == 0
+    assert "ntn api --notion-version 2022-06-28 v1/pages" in result.stdout
     assert "parent[database_id]=ds-123" in result.stdout
     assert "properties[Author][rich_text][0][text][content]=Channel Name" in result.stdout
     assert "properties[Type][select][name]=Video" in result.stdout
@@ -233,12 +266,17 @@ def test_item_add_youtube_upsert_dry_run_prints_query_update_and_create(tmp_path
     assert result.exit_code == 0
     lines = result.stdout.strip().splitlines()
     assert lines[0] == (
-        "ntn api -X POST v1/databases/ds-123/query "
+        "ntn api --notion-version 2022-06-28 -X POST v1/databases/ds-123/query "
         "filter[property]=Link filter[url][equals]=https://www.youtube.com/watch?v=abc "
         "page_size:=1"
     )
-    assert lines[1].startswith("# if existing page found: ntn api -X PATCH v1/pages/<page_id>")
-    assert lines[2].startswith("# otherwise create: ntn api v1/pages parent[database_id]=ds-123")
+    assert lines[1].startswith(
+        "# if existing page found: ntn api --notion-version 2022-06-28 -X PATCH v1/pages/<page_id>"
+    )
+    assert lines[2].startswith(
+        "# otherwise create: ntn api --notion-version 2022-06-28 v1/pages "
+        "parent[database_id]=ds-123"
+    )
 
 
 def test_readme_mentions_ntn_and_config_file() -> None:

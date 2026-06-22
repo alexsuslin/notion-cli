@@ -44,6 +44,10 @@ notion-cli item add-youtube https://youtu.be/example --score 4 --upsert --dry-ru
 `--dry-run` prints the resolved `ntn` command. Use that output to inspect aliases,
 workspace env vars, and encoded properties before any live execution.
 
+For legacy database aliases, `datasource query` and preset-backed write flows also
+pin `--notion-version 2022-06-28` in the rendered command unless the datasource
+config opts into `query_endpoint = "data_source"`.
+
 Treat these commands as read-only by default:
 
 - `doctor`
@@ -161,13 +165,16 @@ With `--done`, the CLI sets `Status = Done` and defaults `Date` to today unless 
 
 ## YouTube Metadata
 
-The repository intentionally prefers a no-key flow.
+The repository intentionally prefers a no-key flow first, with a safe fallback.
 
 - provider: `no_key`
 - implementation: `yt-dlp`
+- fallback: if `yt-dlp` fails and `YOUTUBE_API_KEY` is present, use the YouTube Data API
+- alternate provider: `api_key`
 - fields collected: title, canonical URL, duration, channel/author
 
-No YouTube API key is required for the default enrichment path.
+No YouTube API key is required for the default enrichment path, but adding
+`YOUTUBE_API_KEY` makes the workflow more resilient when YouTube blocks `yt-dlp`.
 
 ## Recommended Agent Behavior
 

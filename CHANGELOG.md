@@ -6,6 +6,16 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- optional `query_endpoint` and `notion_version` datasource config to distinguish legacy database queries from `data_source` queries
+- `youtube.provider = "api_key"` mode for explicit YouTube Data API enrichment
+
+### Changed
+
+- legacy database query and preset-backed page commands now render `--notion-version 2022-06-28` by default
+- YouTube enrichment now falls back to the YouTube Data API when `yt-dlp` fails and `YOUTUBE_API_KEY` is available
+
 ## [0.2.0] - 2026-06-22
 
 ### Added

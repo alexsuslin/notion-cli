@@ -5,7 +5,7 @@ import sys
 import tomllib
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -14,6 +14,7 @@ from notion_cli.errors import ConfigError
 CONFIG_ENV_VAR = "NOTION_CLI_CONFIG"
 CONFIG_FILENAME = "notion-cli.toml"
 CONFIG_DIRNAME = "notion-cli"
+LEGACY_DATABASE_NOTION_VERSION = "2022-06-28"
 
 
 class NotionSettings(BaseModel):
@@ -28,7 +29,16 @@ class WorkspaceConfig(BaseModel):
 class DatasourceConfig(BaseModel):
     id: str
     title_property: str = "Name"
+    query_endpoint: Literal["database", "data_source"] = "database"
+    notion_version: str | None = None
     properties: dict[str, str] = Field(default_factory=dict)
+
+    def effective_notion_version(self) -> str | None:
+        if self.notion_version is not None:
+            return self.notion_version
+        if self.query_endpoint == "database":
+            return LEGACY_DATABASE_NOTION_VERSION
+        return None
 
 
 class PageConfig(BaseModel):
@@ -47,7 +57,7 @@ class PresetConfig(BaseModel):
 
 
 class YoutubeConfig(BaseModel):
-    provider: str = "no_key"
+    provider: Literal["no_key", "api_key"] = "no_key"
     timeout_seconds: int = 10
 
 

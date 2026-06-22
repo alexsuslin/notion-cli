@@ -9,7 +9,8 @@ configuration instead of hardcoding them in PowerShell or ad hoc shell commands.
 - wraps standard `ntn` commands like `api`, `doctor`, and `login`
 - resolves named datasources from `notion-cli.toml`
 - supports dry-run output for safe inspection before live execution
-- enriches YouTube presets with title, canonical URL, and duration
+- pins legacy database queries to Notion API version `2022-06-28` unless you opt into `data_source` queries
+- enriches YouTube presets with title, canonical URL, duration, and channel/author
 - provides a first-class `item add-youtube` workflow with score, tags, project aliases, and upsert dry-run support
 - works with `NOTION_API_TOKEN` so read-only automation does not require local keychain setup
 
@@ -96,6 +97,12 @@ Run a config-backed datasource query:
 notion-cli datasource query items --dry-run
 ```
 
+Legacy database aliases now render with an explicit Notion version:
+
+```bash
+ntn api --notion-version 2022-06-28 -X POST v1/databases/<id>/query
+```
+
 Run a YouTube preset:
 
 ```bash
@@ -127,6 +134,14 @@ This repository now includes a real Codex skill layer for agent-safe usage:
 Use the skill when an agent should resolve datasource aliases, inspect `ntn`
 commands with `--dry-run`, or run read-only Notion queries without hardcoding
 workspace-specific IDs in prompts.
+
+## YouTube Providers
+
+Default behavior:
+
+- `youtube.provider = "no_key"` uses `yt-dlp`
+- if `yt-dlp` fails and `YOUTUBE_API_KEY` is present, the CLI falls back to the YouTube Data API
+- `youtube.provider = "api_key"` forces the YouTube Data API path
 
 ## Development
 

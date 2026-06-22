@@ -13,6 +13,8 @@ class ResolvedPreset:
     workspace_id: str | None
     datasource_name: str | None
     datasource_id: str | None
+    query_endpoint: str
+    notion_version: str | None
     property_names: list[str]
     property_map: dict[str, str]
     youtube_enabled: bool
@@ -48,10 +50,14 @@ def resolve_preset(config: ProjectConfig, name: str) -> ResolvedPreset:
 
     datasource_id = None
     datasource_name = preset.datasource
+    query_endpoint = "database"
+    notion_version: str | None = None
     property_map: dict[str, str] = {}
     if datasource_name is not None:
         datasource = resolve_datasource(config, datasource_name)
         datasource_id = datasource.id
+        query_endpoint = datasource.query_endpoint
+        notion_version = datasource.effective_notion_version()
         property_map = datasource.properties
 
     property_names: list[str] = []
@@ -67,6 +73,8 @@ def resolve_preset(config: ProjectConfig, name: str) -> ResolvedPreset:
         workspace_id=resolve_workspace_id(config),
         datasource_name=datasource_name,
         datasource_id=datasource_id,
+        query_endpoint=query_endpoint,
+        notion_version=notion_version,
         property_names=property_names,
         property_map=property_map,
         youtube_enabled=preset.youtube,

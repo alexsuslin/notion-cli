@@ -46,6 +46,8 @@ def test_resolve_datasource_returns_named_entry() -> None:
 def test_resolve_preset_returns_property_mapping() -> None:
     resolved = resolve_preset(build_config(), "add_youtube")
     assert resolved.datasource_id == "ds-123"
+    assert resolved.query_endpoint == "database"
+    assert resolved.notion_version == "2022-06-28"
     assert resolved.property_names == ["title", "link", "length"]
     assert resolved.property_map["length"] == "Time"
 

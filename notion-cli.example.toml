@@ -10,6 +10,8 @@ id = "project-page-id-here"
 [datasources.items]
 id = "data-source-id-here"
 title_property = "Name"
+query_endpoint = "database"
+notion_version = "2022-06-28"
 
 [datasources.items.properties]
 title = "Name"
