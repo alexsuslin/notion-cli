@@ -11,7 +11,7 @@ def test_render_api_passthrough_preserves_args() -> None:
 
 def test_render_datasource_query_uses_resolved_id() -> None:
     rendered = render_datasource_query("ds-123")
-    assert rendered.args == ["ntn", "api", "v1/data_sources/ds-123/query"]
+    assert rendered.args == ["notion-http", "POST", "/v1/databases/ds-123/query", "{}"]
 
 
 def test_render_page_create_uses_configured_property_names() -> None:
@@ -32,5 +32,5 @@ def test_render_page_create_uses_configured_property_names() -> None:
     )
 
     assert rendered.args[:3] == ["ntn", "api", "v1/pages"]
-    assert "parent[data_source_id]=ds-123" in rendered.args
+    assert "parent[database_id]=ds-123" in rendered.args
     assert "properties[Name][title][0][text][content]=Video Title" in rendered.args

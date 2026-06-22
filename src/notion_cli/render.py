@@ -32,7 +32,7 @@ def render_datasource_query(
     env: dict[str, str] | None = None,
 ) -> RenderedCommand:
     return RenderedCommand(
-        args=["ntn", "api", f"v1/data_sources/{datasource_id}/query"],
+        args=["notion-http", "POST", f"/v1/databases/{datasource_id}/query", "{}"],
         env=env or {},
     )
 
@@ -42,7 +42,7 @@ def render_page_create(
     fields: dict[str, str],
     env: dict[str, str] | None = None,
 ) -> RenderedCommand:
-    args = ["ntn", "api", "v1/pages", f"parent[data_source_id]={preset.datasource_id}"]
+    args = ["ntn", "api", "v1/pages", f"parent[database_id]={preset.datasource_id}"]
     encoders = {
         "title": lambda prop, value: f"properties[{prop}][title][0][text][content]={value}",
         "link": lambda prop, value: f"properties[{prop}][url]={value}",

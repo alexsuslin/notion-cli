@@ -71,7 +71,7 @@ def test_datasource_query_dry_run_works_without_workspace_id(tmp_path: Path) -> 
     )
 
     assert result.exit_code == 0
-    assert result.stdout.strip() == "ntn api v1/data_sources/ds-123/query"
+    assert result.stdout.strip() == "notion-http POST /v1/databases/ds-123/query {}"
 
 
 def test_preset_run_adds_youtube_fields(tmp_path: Path) -> None:
@@ -123,7 +123,7 @@ def test_preset_run_adds_youtube_fields(tmp_path: Path) -> None:
         )
 
     assert result.exit_code == 0
-    assert "parent[data_source_id]=ds-123" in result.stdout
+    assert "parent[database_id]=ds-123" in result.stdout
     assert "properties[Name][title][0][text][content]=Video Title" in result.stdout
 
 
