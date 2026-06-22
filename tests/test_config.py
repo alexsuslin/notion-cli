@@ -25,6 +25,9 @@ def test_load_config_reads_named_datasource(tmp_path: Path) -> None:
         title = "Name"
         link = "Link"
         length = "Time"
+
+        [datasources.items.property_types]
+        status = "select"
         """.strip(),
         encoding="utf-8",
     )
@@ -34,6 +37,7 @@ def test_load_config_reads_named_datasource(tmp_path: Path) -> None:
     assert config.notion.default_workspace == "personal"
     assert config.datasources["items"].id == "datasource-123"
     assert config.datasources["items"].properties["length"] == "Time"
+    assert config.datasources["items"].property_types["status"] == "select"
 
 
 def test_load_config_rejects_missing_workspace_reference(tmp_path: Path) -> None:

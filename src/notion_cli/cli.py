@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -92,38 +93,71 @@ def _require_json_output(rendered: RenderedCommand) -> dict[str, Any]:
     return payload
 
 
-def _render_optional_title(field_name: str, property_name: str, value: str) -> list[str]:
-    if field_name == "title":
-        return [f"properties[{property_name}][title][0][text][content]={value}"]
-    return [f"properties[{property_name}][rich_text][0][text][content]={value}"]
-
-
-def _property_inputs(property_map: dict[str, str], values: dict[str, object]) -> list[str]:
-    encoders: dict[str, Any] = {
-        "title": lambda prop, value: [f"properties[{prop}][title][0][text][content]={value}"],
-        "link": lambda prop, value: [f"properties[{prop}][url]={value}"],
-        "length": lambda prop, value: _render_optional_title("length", prop, str(value)),
-        "author": lambda prop, value: _render_optional_title("author", prop, str(value)),
-        "score": lambda prop, value: [f"properties[{prop}][select][name]={value}"],
-        "type": lambda prop, value: [f"properties[{prop}][select][name]={value}"],
-        "status": lambda prop, value: [f"properties[{prop}][status][name]={value}"],
-        "date": lambda prop, value: [f"properties[{prop}][date][start]={value}"],
-        "project": lambda prop, value: [f"properties[{prop}][relation][0][id]={value}"],
-        "tags": lambda prop, value: [
-            f"properties[{prop}][multi_select][{index}][name]={tag}"
-            for index, tag in enumerate(value)
-        ],
+def _default_property_type(field_name: str) -> str:
+    defaults = {
+        "title": "title",
+        "link": "url",
+        "length": "rich_text",
+        "author": "rich_text",
+        "score": "select",
+        "type": "select",
+        "status": "status",
+        "date": "date",
+        "project": "relation",
+        "tags": "multi_select",
     }
+    return defaults.get(field_name, "rich_text")
+
+
+def _encode_property_value(property_name: str, property_type: str, value: object) -> list[str]:
+    if property_type == "title":
+        return [f"properties[{property_name}][title][0][text][content]={value}"]
+    if property_type == "rich_text":
+        return [f"properties[{property_name}][rich_text][0][text][content]={value}"]
+    if property_type == "url":
+        return [f"properties[{property_name}][url]={value}"]
+    if property_type == "select":
+        return [f"properties[{property_name}][select][name]={value}"]
+    if property_type == "status":
+        return [f"properties[{property_name}][status][name]={value}"]
+    if property_type == "date":
+        return [f"properties[{property_name}][date][start]={value}"]
+    if property_type == "relation":
+        return [f"properties[{property_name}][relation][0][id]={value}"]
+    if property_type == "multi_select":
+        values = value if isinstance(value, list) else [str(value)]
+        return [
+            f"properties[{property_name}][multi_select][{index}][name]={item}"
+            for index, item in enumerate(values)
+        ]
+    raise ConfigError(f"unsupported property type '{property_type}' for '{property_name}'")
+
+
+def _property_inputs(
+    property_map: Mapping[str, str],
+    property_types: Mapping[str, str],
+    values: Mapping[str, object],
+) -> list[str]:
     inputs: list[str] = []
     for field_name, value in values.items():
         property_name = property_map.get(field_name)
         if property_name is None:
             continue
-        encoder = encoders.get(field_name)
-        if encoder is None:
-            continue
-        inputs.extend(encoder(property_name, value))
+        property_type = property_types.get(field_name, _default_property_type(field_name))
+        inputs.extend(_encode_property_value(property_name, property_type, value))
     return inputs
+
+
+def _query_filter_inputs(link_property: str, link_url: str) -> list[str]:
+    filter_payload = json.dumps(
+        {
+            "property": link_property,
+            "url": {"equals": link_url},
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return [f"filter:={filter_payload}", "page_size:=1"]
 
 
 def _score_value(score: int | None) -> str | None:
@@ -276,12 +310,14 @@ def preset_run(
         fields["title"] = title
 
     env = _command_env(project, workspace_id=preset.workspace_id)
+    property_inputs = _property_inputs(preset.property_map, preset.property_types, fields)
     _run(
         render_page_create(
             preset,
-            fields,
+            {},
             notion_version=preset.notion_version,
             env=env,
+            property_inputs=property_inputs,
         ),
         dry_run=dry_run,
     )
@@ -330,7 +366,11 @@ def item_add_youtube(
         property_values["date"] = resolved_date
 
     env = _command_env(project_config, workspace_id=preset.workspace_id)
-    property_inputs = _property_inputs(preset.property_map, property_values)
+    property_inputs = _property_inputs(
+        preset.property_map,
+        preset.property_types,
+        property_values,
+    )
     create_command = render_page_create(
         preset,
         {},
@@ -346,11 +386,7 @@ def item_add_youtube(
     link_property = preset.property_map.get("link")
     if link_property is None:
         raise ConfigError(f"preset '{preset_name}' does not define a link property mapping")
-    query_inputs = [
-        f"filter[property]={link_property}",
-        f"filter[url][equals]={metadata.url}",
-        "page_size:=1",
-    ]
+    query_inputs = _query_filter_inputs(link_property, metadata.url)
     query_command = render_query(
         preset.datasource_id,
         query_endpoint=preset.query_endpoint,

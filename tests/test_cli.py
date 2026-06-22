@@ -34,6 +34,10 @@ def write_full_config(path: Path) -> None:
         date = "Date"
         project = "Project"
 
+        [datasources.items.property_types]
+        author = "multi_select"
+        status = "select"
+
         [pages.sci_pop]
         id = "page-456"
 
@@ -198,7 +202,7 @@ def test_preset_run_adds_youtube_fields(tmp_path: Path) -> None:
     assert "properties[Name][title][0][text][content]=Video Title" in result.stdout
 
 
-def test_item_add_youtube_dry_run_supports_rich_fields(tmp_path: Path) -> None:
+def test_item_add_youtube_dry_run_supports_schema_type_overrides(tmp_path: Path) -> None:
     config_path = tmp_path / "notion-cli.toml"
     write_full_config(config_path)
 
@@ -231,13 +235,13 @@ def test_item_add_youtube_dry_run_supports_rich_fields(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "ntn api --notion-version 2022-06-28 v1/pages" in result.stdout
     assert "parent[database_id]=ds-123" in result.stdout
-    assert "properties[Author][rich_text][0][text][content]=Channel Name" in result.stdout
+    assert "properties[Author][multi_select][0][name]=Channel Name" in result.stdout
     assert "properties[Type][select][name]=Video" in result.stdout
     assert "properties[Score /5][select][name]=⭐️⭐️⭐️⭐️" in result.stdout
     assert "properties[Tags][multi_select][0][name]=youtube" in result.stdout
     assert "properties[Tags][multi_select][1][name]=sci-pop" in result.stdout
     assert "properties[Project][relation][0][id]=page-456" in result.stdout
-    assert "properties[Status][status][name]=Done" in result.stdout
+    assert "properties[Status][select][name]=Done" in result.stdout
     assert "properties[Date][date][start]=2026-06-22" in result.stdout
 
 
@@ -267,7 +271,8 @@ def test_item_add_youtube_upsert_dry_run_prints_query_update_and_create(tmp_path
     lines = result.stdout.strip().splitlines()
     assert lines[0] == (
         "ntn api --notion-version 2022-06-28 -X POST v1/databases/ds-123/query "
-        "filter[property]=Link filter[url][equals]=https://www.youtube.com/watch?v=abc "
+        "filter:={\"property\":\"Link\",\"url\":{\"equals\":"
+        "\"https://www.youtube.com/watch?v=abc\"}} "
         "page_size:=1"
     )
     assert lines[1].startswith(

@@ -93,6 +93,31 @@ Current built-in rendered field types:
 - `tags`
 - `project`
 
+### `[datasources.<alias>.property_types]`
+
+Overrides the default rendered Notion property shape for a logical field.
+
+```toml
+[datasources.items.property_types]
+author = "multi_select"
+status = "select"
+```
+
+Supported override values:
+
+- `title`
+- `rich_text`
+- `url`
+- `select`
+- `status`
+- `date`
+- `relation`
+- `multi_select`
+
+Use this when your local database schema differs from the wrapper defaults, for
+example when `Author` is a `multi_select` instead of `rich_text`, or `Status`
+is a `select` instead of a Notion status property.
+
 ### `[bundles.<alias>]`
 
 Defines reusable ordered property sets.

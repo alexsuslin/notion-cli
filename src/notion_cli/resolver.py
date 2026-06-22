@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
-from notion_cli.config import DatasourceConfig, PageConfig, ProjectConfig
+from notion_cli.config import DatasourceConfig, PageConfig, ProjectConfig, PropertyValueType
 from notion_cli.errors import ConfigError
 
 
@@ -17,6 +18,7 @@ class ResolvedPreset:
     notion_version: str | None
     property_names: list[str]
     property_map: dict[str, str]
+    property_types: Mapping[str, PropertyValueType]
     youtube_enabled: bool
 
 
@@ -53,12 +55,14 @@ def resolve_preset(config: ProjectConfig, name: str) -> ResolvedPreset:
     query_endpoint = "database"
     notion_version: str | None = None
     property_map: dict[str, str] = {}
+    property_types: Mapping[str, PropertyValueType] = {}
     if datasource_name is not None:
         datasource = resolve_datasource(config, datasource_name)
         datasource_id = datasource.id
         query_endpoint = datasource.query_endpoint
         notion_version = datasource.effective_notion_version()
         property_map = datasource.properties
+        property_types = datasource.property_types
 
     property_names: list[str] = []
     if preset.bundle is not None:
@@ -77,5 +81,6 @@ def resolve_preset(config: ProjectConfig, name: str) -> ResolvedPreset:
         notion_version=notion_version,
         property_names=property_names,
         property_map=property_map,
+        property_types=property_types,
         youtube_enabled=preset.youtube,
     )

@@ -26,6 +26,10 @@ author = "Author"
 project = "Project"
 number = "Num"
 
+[datasources.items.property_types]
+author = "multi_select"
+status = "select"
+
 [bundles.default_item]
 properties = ["title", "link", "length"]
 

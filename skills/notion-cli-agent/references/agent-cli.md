@@ -161,6 +161,8 @@ notion-cli item add-youtube https://youtu.be/dQw4w9WgXcQ --score 4 --project sci
 ```
 
 With `--upsert`, the CLI first queries by canonical Link and then updates the existing page or creates a new one.
+The Link filter is rendered as JSON input so canonical YouTube URLs with `?v=...`
+do not break `ntn api` inline parsing.
 With `--done`, the CLI sets `Status = Done` and defaults `Date` to today unless `--date` is provided.
 
 ## YouTube Metadata
@@ -179,6 +181,7 @@ No YouTube API key is required for the default enrichment path, but adding
 ## Recommended Agent Behavior
 
 - prefer datasource aliases and presets over raw IDs
+- add `[datasources.<alias>.property_types]` overrides when the local schema uses different Notion property shapes for logical fields
 - keep write operations explicit
 - inspect `--dry-run` output before live mutation
 - do not commit local `notion-cli.toml`

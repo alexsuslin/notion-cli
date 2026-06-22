@@ -37,7 +37,7 @@ def test_render_query_supports_data_source_endpoint() -> None:
 def test_render_database_query_supports_inline_filters() -> None:
     rendered = render_database_query(
         "ds-123",
-        ["filter[property]=Link", "filter[url][equals]=https://example.com", "page_size:=1"],
+        ['filter:={"property":"Link","url":{"equals":"https://example.com"}}', "page_size:=1"],
     )
     assert rendered.args == [
         "ntn",
@@ -45,8 +45,7 @@ def test_render_database_query_supports_inline_filters() -> None:
         "-X",
         "POST",
         "v1/databases/ds-123/query",
-        "filter[property]=Link",
-        "filter[url][equals]=https://example.com",
+        'filter:={"property":"Link","url":{"equals":"https://example.com"}}',
         "page_size:=1",
     ]
 
@@ -62,6 +61,7 @@ def test_render_page_create_uses_configured_property_names() -> None:
         notion_version="2022-06-28",
         property_names=["title", "link", "length"],
         property_map={"title": "Name", "link": "Link", "length": "Time"},
+        property_types={},
         youtube_enabled=True,
     )
 

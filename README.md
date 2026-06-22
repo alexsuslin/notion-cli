@@ -10,6 +10,7 @@ configuration instead of hardcoding them in PowerShell or ad hoc shell commands.
 - resolves named datasources from `notion-cli.toml`
 - supports dry-run output for safe inspection before live execution
 - pins legacy database queries to Notion API version `2022-06-28` unless you opt into `data_source` queries
+- supports datasource-level property type overrides so local schemas can map fields like `Author` and `Status` correctly
 - enriches YouTube presets with title, canonical URL, duration, and channel/author
 - provides a first-class `item add-youtube` workflow with score, tags, project aliases, and upsert dry-run support
 - works with `NOTION_API_TOKEN` so read-only automation does not require local keychain setup
@@ -121,6 +122,9 @@ Preview the upsert query and update/create plan:
 notion-cli item add-youtube https://youtu.be/dQw4w9WgXcQ --score 4 --done --upsert --dry-run
 ```
 
+The upsert query now renders the Link filter as compact JSON, so canonical
+YouTube URLs with `?v=...` do not break inline `ntn api` parsing.
+
 ## Agent Skill
 
 This repository now includes a real Codex skill layer for agent-safe usage:
@@ -142,6 +146,17 @@ Default behavior:
 - `youtube.provider = "no_key"` uses `yt-dlp`
 - if `yt-dlp` fails and `YOUTUBE_API_KEY` is present, the CLI falls back to the YouTube Data API
 - `youtube.provider = "api_key"` forces the YouTube Data API path
+
+## Schema Overrides
+
+If your Notion database uses different property shapes than the defaults, add
+logical type overrides in config:
+
+```toml
+[datasources.items.property_types]
+author = "multi_select"
+status = "select"
+```
 
 ## Development
 

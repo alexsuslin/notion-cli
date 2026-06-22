@@ -18,6 +18,9 @@ def build_config() -> ProjectConfig:
                         "link": "Link",
                         "length": "Time",
                     },
+                    "property_types": {
+                        "status": "select",
+                    },
                 }
             },
             "pages": {
@@ -50,6 +53,7 @@ def test_resolve_preset_returns_property_mapping() -> None:
     assert resolved.notion_version == "2022-06-28"
     assert resolved.property_names == ["title", "link", "length"]
     assert resolved.property_map["length"] == "Time"
+    assert resolved.property_types["status"] == "select"
 
 
 def test_resolve_preset_keeps_workspace_optional() -> None:

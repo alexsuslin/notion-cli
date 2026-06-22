@@ -15,6 +15,16 @@ CONFIG_ENV_VAR = "NOTION_CLI_CONFIG"
 CONFIG_FILENAME = "notion-cli.toml"
 CONFIG_DIRNAME = "notion-cli"
 LEGACY_DATABASE_NOTION_VERSION = "2022-06-28"
+PropertyValueType = Literal[
+    "title",
+    "rich_text",
+    "url",
+    "select",
+    "status",
+    "date",
+    "relation",
+    "multi_select",
+]
 
 
 class NotionSettings(BaseModel):
@@ -32,6 +42,7 @@ class DatasourceConfig(BaseModel):
     query_endpoint: Literal["database", "data_source"] = "database"
     notion_version: str | None = None
     properties: dict[str, str] = Field(default_factory=dict)
+    property_types: dict[str, PropertyValueType] = Field(default_factory=dict)
 
     def effective_notion_version(self) -> str | None:
         if self.notion_version is not None:
