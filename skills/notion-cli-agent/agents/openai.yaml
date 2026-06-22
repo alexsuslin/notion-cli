@@ -1,0 +1,7 @@
+interface:
+  display_name: "Notion CLI Agent"
+  short_description: "Use config-backed Notion CLI commands safely"
+  default_prompt: "Use $notion-cli-agent to resolve datasource aliases and run safe Notion CLI commands from this repository."
+
+policy:
+  allow_implicit_invocation: true

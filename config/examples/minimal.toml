@@ -1,0 +1,15 @@
+[notion]
+default_workspace = "personal"
+notion_home = ".notion-home"
+
+[workspaces.personal]
+workspace_id = "workspace-id-here"
+
+[datasources.items]
+id = "datasource-id-here"
+title_property = "Name"
+
+[datasources.items.properties]
+title = "Name"
+link = "Link"
+length = "Time"
