@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from notion_cli.config import ProjectConfig
-from notion_cli.resolver import resolve_datasource, resolve_preset
+from notion_cli.resolver import resolve_datasource, resolve_page, resolve_preset
 
 
 def build_config() -> ProjectConfig:
@@ -18,6 +18,11 @@ def build_config() -> ProjectConfig:
                         "link": "Link",
                         "length": "Time",
                     },
+                }
+            },
+            "pages": {
+                "sci_pop": {
+                    "id": "page-123",
                 }
             },
             "bundles": {"default_item": {"properties": ["title", "link", "length"]}},
@@ -70,3 +75,8 @@ def test_resolve_preset_keeps_workspace_optional() -> None:
 
     resolved = resolve_preset(config, "add_item")
     assert resolved.workspace_id is None
+
+
+def test_resolve_page_returns_named_entry() -> None:
+    resolved = resolve_page(build_config(), "sci_pop")
+    assert resolved.id == "page-123"

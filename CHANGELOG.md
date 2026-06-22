@@ -6,6 +6,18 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-22
+
+### Added
+
+- first-class `item add-youtube` workflow with score, project alias, tags, done/date, and upsert dry-run support
+- `resolve page` command for config-backed relation targets
+
+### Changed
+
+- config lookup now checks `--config`, `NOTION_CLI_CONFIG`, the local working tree, and the user config directory
+- datasource query and page create rendering now target legacy database IDs through `ntn api`
+
 ## [0.1.0] - 2026-06-22
 
 ### Added

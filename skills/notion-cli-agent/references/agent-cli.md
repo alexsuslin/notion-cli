@@ -20,7 +20,9 @@ notion-cli --config notion-cli.toml <command>
 
 Default behavior:
 
-- if `--config` is omitted, the CLI looks for `./notion-cli.toml`
+- if `--config` is omitted, the CLI checks `NOTION_CLI_CONFIG`
+- then it looks for `./notion-cli.toml`
+- otherwise it falls back to `$XDG_CONFIG_HOME/notion-cli/notion-cli.toml` or `~/.config/notion-cli/notion-cli.toml`
 - `notion-cli.toml` is local and ignored
 - `notion-cli.example.toml` is the public template that should stay safe to commit
 
@@ -36,6 +38,7 @@ Prefer `--dry-run` first:
 ```bash
 notion-cli datasource query items --dry-run
 notion-cli preset run add_youtube --url https://youtu.be/example --dry-run
+notion-cli item add-youtube https://youtu.be/example --score 4 --upsert --dry-run
 ```
 
 `--dry-run` prints the resolved `ntn` command. Use that output to inspect aliases,
@@ -108,6 +111,14 @@ Returns the preset's resolved datasource ID when present.
 notion-cli resolve preset add_item
 ```
 
+### `resolve page`
+
+Returns the concrete page ID for a named alias.
+
+```bash
+notion-cli resolve page sci_pop
+```
+
 ### `datasource query`
 
 Runs a query against a configured datasource alias.
@@ -137,13 +148,24 @@ Example:
 notion-cli preset run add_youtube --url https://youtu.be/dQw4w9WgXcQ --dry-run
 ```
 
+### `item add-youtube`
+
+Runs the first-class YouTube item workflow.
+
+```bash
+notion-cli item add-youtube https://youtu.be/dQw4w9WgXcQ --score 4 --project sci_pop --tags sci-pop,youtube --dry-run
+```
+
+With `--upsert`, the CLI first queries by canonical Link and then updates the existing page or creates a new one.
+With `--done`, the CLI sets `Status = Done` and defaults `Date` to today unless `--date` is provided.
+
 ## YouTube Metadata
 
 The repository intentionally prefers a no-key flow.
 
 - provider: `no_key`
 - implementation: `yt-dlp`
-- fields collected: title, canonical URL, duration
+- fields collected: title, canonical URL, duration, channel/author
 
 No YouTube API key is required for the default enrichment path.
 

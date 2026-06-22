@@ -7,6 +7,13 @@ Use this file when the task depends on the repository's local config schema.
 - `notion-cli.example.toml` is the tracked public template
 - `notion-cli.toml` is the ignored local file for private IDs and defaults
 
+Config lookup order:
+
+1. `--config <path>`
+2. `NOTION_CLI_CONFIG`
+3. `./notion-cli.toml`
+4. `$XDG_CONFIG_HOME/notion-cli/notion-cli.toml` or `~/.config/notion-cli/notion-cli.toml`
+
 Never commit real:
 
 - workspace IDs
@@ -38,6 +45,15 @@ workspace_id = "workspace-id-here"
 - omit it when not needed
 - keep real values only in local config
 
+### `[pages.<alias>]`
+
+Use page aliases for relation targets such as project pages.
+
+```toml
+[pages.sci_pop]
+id = "page-id-here"
+```
+
 ### `[datasources.<alias>]`
 
 ```toml
@@ -65,6 +81,13 @@ Current built-in rendered field types:
 - `title`
 - `link`
 - `length`
+- `author`
+- `type`
+- `score`
+- `status`
+- `date`
+- `tags`
+- `project`
 
 ### `[bundles.<alias>]`
 
@@ -91,6 +114,7 @@ youtube = true
 - `datasource`: datasource alias to resolve
 - `bundle`: bundle alias defining which logical properties to render
 - `youtube`: when `true`, require `--url` and enrich title, URL, and duration
+- `youtube`: when `true`, require `--url` and enrich title, URL, duration, and author
 
 ### `[youtube]`
 

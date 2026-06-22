@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from notion_cli.resolver import ResolvedPreset
@@ -32,7 +33,36 @@ def render_datasource_query(
     env: dict[str, str] | None = None,
 ) -> RenderedCommand:
     return RenderedCommand(
-        args=["ntn", "api", f"v1/data_sources/{datasource_id}/query"],
+        args=["ntn", "api", "-X", "POST", f"v1/databases/{datasource_id}/query"],
+        env=env or {},
+    )
+
+
+def render_database_query(
+    database_id: str,
+    body_inputs: Sequence[str] | None = None,
+    env: dict[str, str] | None = None,
+) -> RenderedCommand:
+    return RenderedCommand(
+        args=[
+            "ntn",
+            "api",
+            "-X",
+            "POST",
+            f"v1/databases/{database_id}/query",
+            *(body_inputs or []),
+        ],
+        env=env or {},
+    )
+
+
+def render_page_update(
+    page_id: str,
+    property_inputs: Sequence[str],
+    env: dict[str, str] | None = None,
+) -> RenderedCommand:
+    return RenderedCommand(
+        args=["ntn", "api", "-X", "PATCH", f"v1/pages/{page_id}", *property_inputs],
         env=env or {},
     )
 
@@ -41,8 +71,9 @@ def render_page_create(
     preset: ResolvedPreset,
     fields: dict[str, str],
     env: dict[str, str] | None = None,
+    property_inputs: Sequence[str] | None = None,
 ) -> RenderedCommand:
-    args = ["ntn", "api", "v1/pages", f"parent[data_source_id]={preset.datasource_id}"]
+    args = ["ntn", "api", "v1/pages", f"parent[database_id]={preset.datasource_id}"]
     encoders = {
         "title": lambda prop, value: f"properties[{prop}][title][0][text][content]={value}",
         "link": lambda prop, value: f"properties[{prop}][url]={value}",
@@ -57,5 +88,6 @@ def render_page_create(
         if prop_name is None or encoder is None:
             continue
         args.append(encoder(prop_name, fields[field_name]))
+    args.extend(property_inputs or [])
 
     return RenderedCommand(args=args, env=env or {})

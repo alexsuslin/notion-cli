@@ -11,6 +11,7 @@ class YoutubeMetadata:
     url: str
     title: str
     length: str
+    author: str
 
 
 def normalize_youtube_url(url: str) -> str:
@@ -55,4 +56,5 @@ def fetch_youtube_metadata(url: str) -> YoutubeMetadata:
         url=canonical,
         title=info["title"],
         length=parse_duration(int(info["duration"])),
+        author=str(info.get("channel") or info.get("uploader") or ""),
     )

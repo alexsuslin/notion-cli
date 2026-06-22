@@ -4,6 +4,9 @@ notion_home = ".notion-home"
 
 [workspaces.personal]
 
+[pages.sci_pop]
+id = "project-page-id-here"
+
 [datasources.items]
 id = "data-source-id-here"
 title_property = "Name"

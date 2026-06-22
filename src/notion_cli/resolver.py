@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from notion_cli.config import DatasourceConfig, ProjectConfig
+from notion_cli.config import DatasourceConfig, PageConfig, ProjectConfig
 from notion_cli.errors import ConfigError
 
 
@@ -31,6 +31,13 @@ def resolve_datasource(config: ProjectConfig, name: str) -> DatasourceConfig:
         return config.datasources[name]
     except KeyError as exc:
         raise ConfigError(f"unknown datasource alias: {name}") from exc
+
+
+def resolve_page(config: ProjectConfig, name: str) -> PageConfig:
+    try:
+        return config.pages[name]
+    except KeyError as exc:
+        raise ConfigError(f"unknown page alias: {name}") from exc
 
 
 def resolve_preset(config: ProjectConfig, name: str) -> ResolvedPreset:

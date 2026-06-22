@@ -10,6 +10,7 @@ configuration instead of hardcoding them in PowerShell or ad hoc shell commands.
 - resolves named datasources from `notion-cli.toml`
 - supports dry-run output for safe inspection before live execution
 - enriches YouTube presets with title, canonical URL, and duration
+- provides a first-class `item add-youtube` workflow with score, tags, project aliases, and upsert dry-run support
 - works with `NOTION_API_TOKEN` so read-only automation does not require local keychain setup
 
 ## Requirements
@@ -60,8 +61,16 @@ Copy one of the examples:
 Then create your local private config:
 
 ```bash
-cp notion-cli.example.toml notion-cli.toml
+mkdir -p ~/.config/notion-cli
+cp notion-cli.example.toml ~/.config/notion-cli/notion-cli.toml
 ```
+
+Config lookup order:
+
+1. `--config <path>`
+2. `NOTION_CLI_CONFIG`
+3. `./notion-cli.toml`
+4. `$XDG_CONFIG_HOME/notion-cli/notion-cli.toml` or `~/.config/notion-cli/notion-cli.toml`
 
 `notion-cli.toml` is intentionally ignored and should contain your private IDs,
 workspace-specific aliases, and local defaults. Do not commit real Notion IDs,
@@ -93,6 +102,18 @@ Run a YouTube preset:
 notion-cli preset run add_youtube --url https://youtu.be/dQw4w9WgXcQ --dry-run
 ```
 
+Run the first-class YouTube item workflow:
+
+```bash
+notion-cli item add-youtube https://youtu.be/dQw4w9WgXcQ --score 4 --project sci_pop --tags sci-pop,youtube --dry-run
+```
+
+Preview the upsert query and update/create plan:
+
+```bash
+notion-cli item add-youtube https://youtu.be/dQw4w9WgXcQ --score 4 --done --upsert --dry-run
+```
+
 ## Agent Skill
 
 This repository now includes a real Codex skill layer for agent-safe usage:
@@ -112,7 +133,7 @@ workspace-specific IDs in prompts.
 Run the full local quality gate:
 
 ```bash
-pytest -q
+pytest -v
 ruff check .
 mypy src
 ```
