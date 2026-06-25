@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-06-25
+
 ### Added
 
 - optional `query_endpoint` and `notion_version` datasource config to distinguish legacy database queries from `data_source` queries
