@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from notion_cli.errors import ConfigError
 from notion_cli.render import (
     render_api_passthrough,
     render_database_query,
@@ -75,6 +76,28 @@ def test_render_page_create_uses_configured_property_names() -> None:
     assert "parent[database_id]=ds-123" in rendered.args
     assert "properties[Name][title][0][text][content]=Video Title" in rendered.args
 
+
+def test_render_page_create_rejects_preset_without_datasource() -> None:
+    preset = ResolvedPreset(
+        name="missing_datasource",
+        kind="page_create",
+        workspace_id="workspace-123",
+        datasource_name=None,
+        datasource_id=None,
+        query_endpoint="database",
+        notion_version=None,
+        property_names=[],
+        property_map={},
+        property_types={},
+        youtube_enabled=False,
+    )
+
+    try:
+        render_page_create(preset, {})
+    except ConfigError as exc:
+        assert "does not resolve to a datasource" in str(exc)
+    else:
+        raise AssertionError("render_page_create accepted a preset without a datasource")
 
 def test_render_page_update_uses_patch_method() -> None:
     rendered = render_page_update(

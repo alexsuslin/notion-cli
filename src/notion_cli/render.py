@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
+from notion_cli.errors import ConfigError
 from notion_cli.resolver import ResolvedPreset
 
 
@@ -106,6 +107,9 @@ def render_page_create(
     env: dict[str, str] | None = None,
     property_inputs: Sequence[str] | None = None,
 ) -> RenderedCommand:
+    if preset.datasource_id is None:
+        raise ConfigError(f"preset '{preset.name}' does not resolve to a datasource")
+
     args = [*_api_args(notion_version), "v1/pages", f"parent[database_id]={preset.datasource_id}"]
     encoders = {
         "title": lambda prop, value: f"properties[{prop}][title][0][text][content]={value}",
