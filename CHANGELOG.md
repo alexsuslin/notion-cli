@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-07-03
+
+### Changed
+
+- require Python 3.12 and update CI/release workflows to run on Python 3.12
+- render Notion page create/update property values as JSON input so URLs, titles with spaces, and unicode values survive `ntn api` inline parsing
+
+### Fixed
+
+- reject page-create presets that do not resolve to a datasource instead of rendering `parent[database_id]=None`
+
 ## [0.2.1] - 2026-06-25
 
 ### Added
