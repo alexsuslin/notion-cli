@@ -122,8 +122,8 @@ Preview the upsert query and update/create plan:
 notion-cli item add-youtube https://youtu.be/dQw4w9WgXcQ --score 4 --done --upsert --dry-run
 ```
 
-The upsert query now renders the Link filter as compact JSON, so canonical
-YouTube URLs with `?v=...` do not break inline `ntn api` parsing.
+The upsert query renders the Link filter as compact JSON, and create/update
+property values render as `path:=json`, so canonical YouTube URLs with `?v=...`, titles with spaces, and unicode values do not break inline `ntn api` parsing.
 
 ## Agent Skill
 
