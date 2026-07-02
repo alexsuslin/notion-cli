@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
@@ -25,6 +26,10 @@ def _query_path(query_id: str, query_endpoint: str) -> str:
         return f"v1/data_sources/{query_id}/query"
     return f"v1/databases/{query_id}/query"
 
+
+def _json_input(path: str, value: object) -> str:
+    encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    return f"{path}:={encoded}"
 
 def render_api_passthrough(args: list[str], env: dict[str, str] | None = None) -> RenderedCommand:
     return RenderedCommand(args=["ntn", "api", *args], env=env or {})
@@ -112,11 +117,16 @@ def render_page_create(
 
     args = [*_api_args(notion_version), "v1/pages", f"parent[database_id]={preset.datasource_id}"]
     encoders = {
-        "title": lambda prop, value: f"properties[{prop}][title][0][text][content]={value}",
-        "link": lambda prop, value: f"properties[{prop}][url]={value}",
-        "length": lambda prop, value: f"properties[{prop}][rich_text][0][text][content]={value}",
+        "title": lambda prop, value: _json_input(
+            f"properties[{prop}][title][0][text][content]",
+            value,
+        ),
+        "link": lambda prop, value: _json_input(f"properties[{prop}][url]", value),
+        "length": lambda prop, value: _json_input(
+            f"properties[{prop}][rich_text][0][text][content]",
+            value,
+        ),
     }
-
     for field_name in preset.property_names:
         if field_name not in fields:
             continue

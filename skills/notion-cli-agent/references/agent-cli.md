@@ -161,8 +161,7 @@ notion-cli item add-youtube https://youtu.be/dQw4w9WgXcQ --score 4 --project sci
 ```
 
 With `--upsert`, the CLI first queries by canonical Link and then updates the existing page or creates a new one.
-The Link filter is rendered as JSON input so canonical YouTube URLs with `?v=...`
-do not break `ntn api` inline parsing.
+The Link filter and page create/update property values are rendered as JSON input, so canonical YouTube URLs with `?v=...`, titles with spaces, and unicode values do not break `ntn api` inline parsing.
 With `--done`, the CLI sets `Status = Done` and defaults `Date` to today unless `--date` is provided.
 
 ## YouTube Metadata

@@ -74,7 +74,7 @@ def test_render_page_create_uses_configured_property_names() -> None:
 
     assert rendered.args[:5] == ["ntn", "api", "--notion-version", "2022-06-28", "v1/pages"]
     assert "parent[database_id]=ds-123" in rendered.args
-    assert "properties[Name][title][0][text][content]=Video Title" in rendered.args
+    assert 'properties[Name][title][0][text][content]:="Video Title"' in rendered.args
 
 
 def test_render_page_create_rejects_preset_without_datasource() -> None:

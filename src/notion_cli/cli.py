@@ -109,25 +109,30 @@ def _default_property_type(field_name: str) -> str:
     return defaults.get(field_name, "rich_text")
 
 
+def _json_input(path: str, value: object) -> str:
+    encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    return f"{path}:={encoded}"
+
+
 def _encode_property_value(property_name: str, property_type: str, value: object) -> list[str]:
     if property_type == "title":
-        return [f"properties[{property_name}][title][0][text][content]={value}"]
+        return [_json_input(f"properties[{property_name}][title][0][text][content]", value)]
     if property_type == "rich_text":
-        return [f"properties[{property_name}][rich_text][0][text][content]={value}"]
+        return [_json_input(f"properties[{property_name}][rich_text][0][text][content]", value)]
     if property_type == "url":
-        return [f"properties[{property_name}][url]={value}"]
+        return [_json_input(f"properties[{property_name}][url]", value)]
     if property_type == "select":
-        return [f"properties[{property_name}][select][name]={value}"]
+        return [_json_input(f"properties[{property_name}][select][name]", value)]
     if property_type == "status":
-        return [f"properties[{property_name}][status][name]={value}"]
+        return [_json_input(f"properties[{property_name}][status][name]", value)]
     if property_type == "date":
-        return [f"properties[{property_name}][date][start]={value}"]
+        return [_json_input(f"properties[{property_name}][date][start]", value)]
     if property_type == "relation":
-        return [f"properties[{property_name}][relation][0][id]={value}"]
+        return [_json_input(f"properties[{property_name}][relation][0][id]", value)]
     if property_type == "multi_select":
         values = value if isinstance(value, list) else [str(value)]
         return [
-            f"properties[{property_name}][multi_select][{index}][name]={item}"
+            _json_input(f"properties[{property_name}][multi_select][{index}][name]", item)
             for index, item in enumerate(values)
         ]
     raise ConfigError(f"unsupported property type '{property_type}' for '{property_name}'")

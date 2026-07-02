@@ -199,7 +199,7 @@ def test_preset_run_adds_youtube_fields(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "ntn api --notion-version 2022-06-28 v1/pages" in result.stdout
     assert "parent[database_id]=ds-123" in result.stdout
-    assert "properties[Name][title][0][text][content]=Video Title" in result.stdout
+    assert 'properties[Name][title][0][text][content]:="Video Title"' in result.stdout
 
 
 def test_item_add_youtube_dry_run_supports_schema_type_overrides(tmp_path: Path) -> None:
@@ -235,15 +235,53 @@ def test_item_add_youtube_dry_run_supports_schema_type_overrides(tmp_path: Path)
     assert result.exit_code == 0
     assert "ntn api --notion-version 2022-06-28 v1/pages" in result.stdout
     assert "parent[database_id]=ds-123" in result.stdout
-    assert "properties[Author][multi_select][0][name]=Channel Name" in result.stdout
-    assert "properties[Type][select][name]=Video" in result.stdout
-    assert "properties[Score /5][select][name]=⭐️⭐️⭐️⭐️" in result.stdout
-    assert "properties[Tags][multi_select][0][name]=youtube" in result.stdout
-    assert "properties[Tags][multi_select][1][name]=sci-pop" in result.stdout
-    assert "properties[Project][relation][0][id]=page-456" in result.stdout
-    assert "properties[Status][select][name]=Done" in result.stdout
-    assert "properties[Date][date][start]=2026-06-22" in result.stdout
+    assert 'properties[Author][multi_select][0][name]:="Channel Name"' in result.stdout
+    assert 'properties[Type][select][name]:="Video"' in result.stdout
+    assert 'properties[Score /5][select][name]:="⭐️⭐️⭐️⭐️"' in result.stdout
+    assert 'properties[Tags][multi_select][0][name]:="youtube"' in result.stdout
+    assert 'properties[Tags][multi_select][1][name]:="sci-pop"' in result.stdout
+    assert 'properties[Project][relation][0][id]:="page-456"' in result.stdout
+    assert 'properties[Status][select][name]:="Done"' in result.stdout
+    assert 'properties[Date][date][start]:="2026-06-22"' in result.stdout
 
+
+def test_item_add_youtube_dry_run_json_encodes_ntn_property_values(tmp_path: Path) -> None:
+    config_path = tmp_path / "notion-cli.toml"
+    write_full_config(config_path)
+
+    with patch("notion_cli.cli.fetch_youtube_metadata") as fetch:
+        fetch.return_value.url = "https://www.youtube.com/watch?v=i_B3BuRb3eQ"
+        fetch.return_value.title = (
+            "VPN Tier List 2026: The Good, the Overhyped, and the Ones to Avoid"
+        )
+        fetch.return_value.length = "12:34"
+        fetch.return_value.author = "Channel Name"
+        result = runner.invoke(
+            app,
+            [
+                "--config",
+                str(config_path),
+                "item",
+                "add-youtube",
+                "https://www.youtube.com/watch?v=i_B3BuRb3eQ",
+                "--score",
+                "5",
+                "--tags",
+                "youtube,vpn",
+                "--done",
+                "--dry-run",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert (
+        'properties[Name][title][0][text][content]:='
+        '"VPN Tier List 2026: The Good, the Overhyped, and the Ones to Avoid"'
+    ) in result.stdout
+    assert (
+        'properties[Link][url]:="https://www.youtube.com/watch?v=i_B3BuRb3eQ"'
+        in result.stdout
+    )
 
 def test_item_add_youtube_upsert_dry_run_prints_query_update_and_create(tmp_path: Path) -> None:
     config_path = tmp_path / "notion-cli.toml"
