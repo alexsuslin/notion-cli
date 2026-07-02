@@ -17,7 +17,7 @@ configuration instead of hardcoding them in PowerShell or ad hoc shell commands.
 
 ## Requirements
 
-- Python 3.11+
+- Python 3.12+
 - `ntn` installed and available on `PATH` for live execution
 
 On Windows, the official Notion docs currently support:
