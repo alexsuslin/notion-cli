@@ -288,9 +288,9 @@ def test_item_add_youtube_upsert_dry_run_prints_query_update_and_create(tmp_path
     write_full_config(config_path)
 
     with patch("notion_cli.cli.fetch_youtube_metadata") as fetch:
-        fetch.return_value.url = "https://www.youtube.com/watch?v=abc"
-        fetch.return_value.title = "Video Title"
-        fetch.return_value.length = "3:21"
+        fetch.return_value.url = "https://www.youtube.com/watch?v=xHPEfosHAXM"
+        fetch.return_value.title = "Video Title: science & space"
+        fetch.return_value.length = "22:52"
         fetch.return_value.author = "Channel Name"
         result = runner.invoke(
             app,
@@ -299,7 +299,14 @@ def test_item_add_youtube_upsert_dry_run_prints_query_update_and_create(tmp_path
                 str(config_path),
                 "item",
                 "add-youtube",
-                "https://youtu.be/abc",
+                "https://www.youtube.com/watch?v=xHPEfosHAXM",
+                "--score",
+                "5",
+                "--project",
+                "sci_pop",
+                "--tags",
+                "sci-pop,youtube",
+                "--done",
                 "--upsert",
                 "--dry-run",
             ],
@@ -310,7 +317,7 @@ def test_item_add_youtube_upsert_dry_run_prints_query_update_and_create(tmp_path
     assert lines[0] == (
         "ntn api --notion-version 2022-06-28 -X POST v1/databases/ds-123/query "
         "filter:={\"property\":\"Link\",\"url\":{\"equals\":"
-        "\"https://www.youtube.com/watch?v=abc\"}} "
+        "\"https://www.youtube.com/watch?v=xHPEfosHAXM\"}} "
         "page_size:=1"
     )
     assert lines[1].startswith(
@@ -320,6 +327,20 @@ def test_item_add_youtube_upsert_dry_run_prints_query_update_and_create(tmp_path
         "# otherwise create: ntn api --notion-version 2022-06-28 v1/pages "
         "parent[database_id]=ds-123"
     )
+    assert (
+        'properties[Link][url]:="https://www.youtube.com/watch?v=xHPEfosHAXM"'
+        in result.stdout
+    )
+    assert 'properties[Time][rich_text][0][text][content]:="22:52"' in result.stdout
+    assert (
+        'properties[Name][title][0][text][content]:="Video Title: science & space"'
+        in result.stdout
+    )
+    assert (
+        "properties[Link][url]=https://www.youtube.com/watch?v=xHPEfosHAXM"
+        not in result.stdout
+    )
+    assert "properties[Time][rich_text][0][text][content]=22:52" not in result.stdout
 
 
 def test_readme_mentions_ntn_and_config_file() -> None:
