@@ -12,6 +12,7 @@ from notion_cli.resolver import ResolvedPreset
 class RenderedCommand:
     args: list[str]
     env: dict[str, str] = field(default_factory=dict)
+    timeout_seconds: float = 60
 
 
 def _api_args(notion_version: str | None = None) -> list[str]:
@@ -30,6 +31,7 @@ def _query_path(query_id: str, query_endpoint: str) -> str:
 def _json_input(path: str, value: object) -> str:
     encoded = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
     return f"{path}:={encoded}"
+
 
 def render_api_passthrough(args: list[str], env: dict[str, str] | None = None) -> RenderedCommand:
     return RenderedCommand(args=["ntn", "api", *args], env=env or {})
@@ -115,7 +117,8 @@ def render_page_create(
     if preset.datasource_id is None:
         raise ConfigError(f"preset '{preset.name}' does not resolve to a datasource")
 
-    args = [*_api_args(notion_version), "v1/pages", f"parent[database_id]={preset.datasource_id}"]
+    parent_type = "data_source_id" if preset.query_endpoint == "data_source" else "database_id"
+    args = [*_api_args(notion_version), "v1/pages", f"parent[{parent_type}]={preset.datasource_id}"]
     encoders = {
         "title": lambda prop, value: _json_input(
             f"properties[{prop}][title][0][text][content]",
@@ -138,3 +141,28 @@ def render_page_create(
     args.extend(property_inputs or [])
 
     return RenderedCommand(args=args, env=env or {})
+
+
+def command_plan(command: RenderedCommand) -> dict[str, object]:
+    """Return a versioned preview with only known non-secret environment overrides."""
+    safe_keys = {"NOTION_HOME", "NOTION_WORKSPACE_ID", "NOTION_API_VERSION"}
+    return {
+        "version": 1,
+        "kind": "command",
+        "args": command.args,
+        "env": {key: value for key, value in command.env.items() if key in safe_keys},
+        "timeout_seconds": command.timeout_seconds,
+    }
+
+
+def render_datasource_schema(
+    datasource_id: str,
+    query_endpoint: str = "database",
+    notion_version: str | None = None,
+    env: dict[str, str] | None = None,
+) -> RenderedCommand:
+    resource = "data_sources" if query_endpoint == "data_source" else "databases"
+    return RenderedCommand(
+        args=[*_api_args(notion_version), "-X", "GET", f"v1/{resource}/{datasource_id}"],
+        env=env or {},
+    )

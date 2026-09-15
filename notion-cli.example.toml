@@ -1,6 +1,7 @@
 [notion]
 default_workspace = "personal"
 notion_home = ".notion-home"
+timeout_seconds = 60
 
 [workspaces.personal]
 

@@ -25,8 +25,15 @@ def run_command(rendered: RenderedCommand, dry_run: bool = False) -> str:
             check=False,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            timeout=rendered.timeout_seconds,
             env=env,
         )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeCommandError(
+            f"ntn timed out after {rendered.timeout_seconds:g} seconds; "
+            "the operation may have completed remotely, so check its state before retrying"
+        ) from exc
     except FileNotFoundError as exc:
         raise EnvironmentError(f"`{rendered.args[0]}` is not installed or not on PATH") from exc
 

@@ -6,6 +6,25 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ## [Unreleased]
 
+### Added
+
+- datasource query filters, repeatable property sorts, page size, cursors, and complete-result `--all` pagination
+- global `--dry-run-json` with versioned argument/env/timeout plans, including conditional upsert branches
+- configurable per-call `ntn` timeout via `[notion].timeout_seconds` and global `--timeout`
+- read-only `datasource schema --check` for configured property names and types
+- CI matrix for Ubuntu/Windows and Python 3.12/3.14, with real subprocess transport and timeout tests
+
+- `item set` for focused property updates with datasource mappings, aliases, page UUIDs, Notion URLs, and offline dry-run support (issue #14)
+- `item add-youtube --author` to override the inferred author
+
+### Fixed
+
+- decode `ntn` output as UTF-8 to preserve Unicode on Windows
+
+- use `data_source_id` parents when creating pages for modern datasource aliases
+- reject malformed upsert query results before creating duplicate items
+- report configuration and domain errors on stderr with a nonzero exit code
+
 ## [0.2.2] - 2026-07-03
 
 ### Changed

@@ -99,6 +99,7 @@ def test_render_page_create_rejects_preset_without_datasource() -> None:
     else:
         raise AssertionError("render_page_create accepted a preset without a datasource")
 
+
 def test_render_page_update_uses_patch_method() -> None:
     rendered = render_page_update(
         "page-123",
@@ -116,3 +117,23 @@ def test_render_page_update_uses_patch_method() -> None:
         "properties[Status][status][name]=Done",
         "properties[Date][date][start]=2026-06-22",
     ]
+
+
+def test_render_page_create_uses_data_source_parent() -> None:
+    preset = ResolvedPreset(
+        name="add_item",
+        kind="page_create",
+        workspace_id=None,
+        datasource_name="items",
+        datasource_id="ds-123",
+        query_endpoint="data_source",
+        notion_version="2025-09-03",
+        property_names=[],
+        property_map={},
+        property_types={},
+        youtube_enabled=False,
+    )
+    rendered = render_page_create(preset, {}, notion_version=preset.notion_version)
+    assert "parent[data_source_id]=ds-123" in rendered.args
+    assert "parent[database_id]=ds-123" not in rendered.args
+    assert rendered.args[:4] == ["ntn", "api", "--notion-version", "2025-09-03"]

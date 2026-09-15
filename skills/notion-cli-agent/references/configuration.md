@@ -29,10 +29,14 @@ Never commit real:
 [notion]
 default_workspace = "personal"
 notion_home = ".notion-home"
+timeout_seconds = 60
 ```
 
 - `default_workspace`: required alias that must exist under `[workspaces]`
 - `notion_home`: optional local `NOTION_HOME` override for the wrapped `ntn` command
+- `timeout_seconds`: finite positive limit per `ntn` call; defaults to 60 and is
+  overridden by the global `--timeout` option. It also applies separately to
+  each page fetched by `datasource query --all`. No automatic retries.
 
 ### `[workspaces.<alias>]`
 
@@ -157,6 +161,13 @@ timeout_seconds = 10
 - if `YOUTUBE_API_KEY` is present and `yt-dlp` fails, the CLI falls back to the YouTube Data API
 - `provider = "api_key"` forces the YouTube Data API and requires `YOUTUBE_API_KEY`
 - `timeout_seconds` applies to both provider paths
+
+## Checking the remote schema
+
+Run `notion-cli datasource schema <alias> --check` to compare configured property
+names and types against Notion. This is read-only, uses the configured API
+endpoint/version, and exits with code 1 on mismatches. A dry-run previews only
+the schema request and cannot determine whether mappings match.
 
 ## Maintenance Notes
 

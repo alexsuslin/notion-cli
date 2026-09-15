@@ -1,21 +1,25 @@
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
 from typing import Any
 
 import typer
+from typer.core import TyperGroup
 
-from notion_cli.config import ProjectConfig, load_config, resolve_config_path
+from notion_cli.config import ProjectConfig, default_property_type, load_config, resolve_config_path
 from notion_cli.errors import ConfigError, NotionCliError, RuntimeCommandError
 from notion_cli.exec import run_command
+from notion_cli.query import query_all, query_inputs
 from notion_cli.render import (
     RenderedCommand,
+    command_plan,
     render_api_passthrough,
-    render_datasource_query,
+    render_datasource_schema,
     render_doctor,
     render_exec_passthrough,
     render_login,
@@ -23,10 +27,28 @@ from notion_cli.render import (
     render_page_update,
     render_query,
 )
-from notion_cli.resolver import resolve_datasource, resolve_page, resolve_preset
+from notion_cli.resolver import (
+    resolve_datasource,
+    resolve_page,
+    resolve_page_reference,
+    resolve_preset,
+    resolve_workspace_id,
+)
+from notion_cli.schema import check_schema
 from notion_cli.youtube import fetch_youtube_metadata
 
-app = typer.Typer(help="Config-driven wrapper around the official Notion CLI.")
+
+class NotionCliGroup(TyperGroup):
+    # Typer versions use different base Context classes at this dispatch boundary.
+    def invoke(self, ctx: Any) -> Any:
+        try:
+            return super().invoke(ctx)
+        except NotionCliError as exc:
+            typer.echo(f"Error: {exc}", err=True)
+            raise typer.Exit(code=1) from exc
+
+
+app = typer.Typer(cls=NotionCliGroup, help="Config-driven wrapper around the official Notion CLI.")
 resolve_app = typer.Typer(help="Resolve config aliases.")
 datasource_app = typer.Typer(help="Run datasource operations.")
 preset_app = typer.Typer(help="Run named presets.")
@@ -37,12 +59,16 @@ app.add_typer(preset_app, name="preset")
 app.add_typer(item_app, name="item")
 CONFIG_OPTION = typer.Option(None, "--config")
 VERBOSE_OPTION = typer.Option(False, "--verbose")
+SORT_OPTION = typer.Option(None, "--sort", help="Repeat PROPERTY:asc or PROPERTY:desc.")
 
 
 @dataclass
 class AppState:
     config_path: Path
     verbose: bool = False
+    timeout: float | None = None
+    dry_run_json: bool = False
+    config: ProjectConfig | None = None
 
 
 def _command_env(config: ProjectConfig, workspace_id: str | None = None) -> dict[str, str]:
@@ -58,7 +84,9 @@ def _config_from_context(ctx: typer.Context) -> ProjectConfig:
     state = ctx.obj
     if not isinstance(state, AppState):
         raise RuntimeError("application state was not initialized")
-    return load_config(state.config_path)
+    if state.config is None:
+        state.config = load_config(state.config_path)
+    return state.config
 
 
 def _optional_config_from_context(ctx: typer.Context) -> ProjectConfig | None:
@@ -67,10 +95,25 @@ def _optional_config_from_context(ctx: typer.Context) -> ProjectConfig | None:
         raise RuntimeError("application state was not initialized")
     if not state.config_path.exists():
         return None
-    return load_config(state.config_path)
+    if state.config is None:
+        state.config = load_config(state.config_path)
+    return state.config
 
 
-def _run(rendered: RenderedCommand, dry_run: bool) -> None:
+def _prepare_command(ctx: typer.Context, rendered: RenderedCommand) -> RenderedCommand:
+    state: AppState = ctx.obj
+    config = _optional_config_from_context(ctx)
+    timeout = state.timeout
+    if timeout is None:
+        timeout = config.notion.timeout_seconds if config is not None else 60
+    return replace(rendered, timeout_seconds=timeout)
+
+
+def _run(ctx: typer.Context, rendered: RenderedCommand, dry_run: bool) -> None:
+    rendered = _prepare_command(ctx, rendered)
+    if ctx.obj.dry_run_json:
+        typer.echo(json.dumps(command_plan(rendered), ensure_ascii=False))
+        return
     try:
         typer.echo(run_command(rendered, dry_run=dry_run))
     except NotionCliError as exc:
@@ -82,8 +125,8 @@ def _command_text(rendered: RenderedCommand) -> str:
     return run_command(rendered, dry_run=True)
 
 
-def _require_json_output(rendered: RenderedCommand) -> dict[str, Any]:
-    output = run_command(rendered)
+def _require_json_output(ctx: typer.Context, rendered: RenderedCommand) -> dict[str, Any]:
+    output = run_command(_prepare_command(ctx, rendered))
     try:
         payload = json.loads(output)
     except json.JSONDecodeError as exc:
@@ -91,22 +134,6 @@ def _require_json_output(rendered: RenderedCommand) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise RuntimeCommandError("expected JSON object response from Notion API")
     return payload
-
-
-def _default_property_type(field_name: str) -> str:
-    defaults = {
-        "title": "title",
-        "link": "url",
-        "length": "rich_text",
-        "author": "rich_text",
-        "score": "select",
-        "type": "select",
-        "status": "status",
-        "date": "date",
-        "project": "relation",
-        "tags": "multi_select",
-    }
-    return defaults.get(field_name, "rich_text")
 
 
 def _json_input(path: str, value: object) -> str:
@@ -131,6 +158,8 @@ def _encode_property_value(property_name: str, property_type: str, value: object
         return [_json_input(f"properties[{property_name}][relation][0][id]", value)]
     if property_type == "multi_select":
         values = value if isinstance(value, list) else [str(value)]
+        if not values:
+            return [_json_input(f"properties[{property_name}][multi_select]", [])]
         return [
             _json_input(f"properties[{property_name}][multi_select][{index}][name]", item)
             for index, item in enumerate(values)
@@ -148,7 +177,7 @@ def _property_inputs(
         property_name = property_map.get(field_name)
         if property_name is None:
             continue
-        property_type = property_types.get(field_name, _default_property_type(field_name))
+        property_type = property_types.get(field_name, default_property_type(field_name))
         inputs.extend(_encode_property_value(property_name, property_type, value))
     return inputs
 
@@ -218,22 +247,33 @@ def main(
     ctx: typer.Context,
     config: Path | None = CONFIG_OPTION,
     verbose: bool = VERBOSE_OPTION,
+    timeout: float | None = typer.Option(None, "--timeout", help="Maximum seconds per ntn call."),
+    dry_run_json: bool = typer.Option(
+        False, "--dry-run-json", help="Print JSON plan without ntn execution."
+    ),
 ) -> None:
-    ctx.obj = AppState(config_path=resolve_config_path(config), verbose=verbose)
+    if timeout is not None and (not math.isfinite(timeout) or timeout <= 0):
+        raise typer.BadParameter("--timeout must be a finite positive number")
+    ctx.obj = AppState(
+        config_path=resolve_config_path(config),
+        verbose=verbose,
+        timeout=timeout,
+        dry_run_json=dry_run_json,
+    )
 
 
 @app.command()
 def login(ctx: typer.Context, dry_run: bool = False) -> None:
     config = _optional_config_from_context(ctx)
     env = _command_env(config) if config is not None else {}
-    _run(render_login(env), dry_run=dry_run)
+    _run(ctx, render_login(env), dry_run=dry_run)
 
 
 @app.command()
 def doctor(ctx: typer.Context, dry_run: bool = False) -> None:
     config = _optional_config_from_context(ctx)
     env = _command_env(config) if config is not None else {}
-    _run(render_doctor(env), dry_run=dry_run)
+    _run(ctx, render_doctor(env), dry_run=dry_run)
 
 
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
@@ -241,7 +281,7 @@ def api(
     ctx: typer.Context,
     dry_run: bool = typer.Option(False, "--dry-run"),
 ) -> None:
-    _run(render_api_passthrough(list(ctx.args)), dry_run=dry_run)
+    _run(ctx, render_api_passthrough(list(ctx.args)), dry_run=dry_run)
 
 
 @app.command("exec", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
@@ -249,7 +289,7 @@ def exec_command(
     ctx: typer.Context,
     dry_run: bool = typer.Option(False, "--dry-run"),
 ) -> None:
-    _run(render_exec_passthrough(list(ctx.args)), dry_run=dry_run)
+    _run(ctx, render_exec_passthrough(list(ctx.args)), dry_run=dry_run)
 
 
 @resolve_app.command("datasource")
@@ -275,20 +315,69 @@ def resolve_page_command(ctx: typer.Context, name: str) -> None:
 def datasource_query(
     ctx: typer.Context,
     name: str,
+    filter_json: str | None = typer.Option(None, "--filter", help="Notion filter JSON object."),
+    sorts: list[str] | None = SORT_OPTION,
+    page_size: int | None = typer.Option(None, "--page-size", min=1, max=100),
+    start_cursor: str | None = typer.Option(None, "--start-cursor"),
+    all_pages: bool = typer.Option(False, "--all", help="Combine every page of query results."),
     dry_run: bool = typer.Option(False, "--dry-run"),
 ) -> None:
     project = _config_from_context(ctx)
     datasource = resolve_datasource(project, name)
-    env = _command_env(project)
-    _run(
-        render_datasource_query(
-            datasource.id,
-            query_endpoint=datasource.query_endpoint,
-            notion_version=datasource.effective_notion_version(),
-            env=env,
-        ),
-        dry_run=dry_run,
+    body = query_inputs(datasource, filter_json, sorts or [], page_size, start_cursor)
+    command = render_query(
+        datasource.id,
+        query_endpoint=datasource.query_endpoint,
+        body_inputs=body,
+        notion_version=datasource.effective_notion_version(),
+        env=_command_env(project, workspace_id=resolve_workspace_id(project)),
     )
+    if ctx.obj.dry_run_json:
+        plan = command_plan(_prepare_command(ctx, command))
+        plan.update(kind="query", pagination={"all": all_pages, "cursor_field": "next_cursor"})
+        typer.echo(json.dumps(plan, ensure_ascii=False))
+    elif dry_run:
+        _run(ctx, command, dry_run=True)
+        if all_pages:
+            typer.echo(
+                "# follow next_cursor while has_more; combine results after all pages succeed"
+            )
+    elif all_pages:
+        payload = query_all(
+            command, lambda request: _require_json_output(ctx, request), start_cursor
+        )
+        typer.echo(json.dumps(payload, ensure_ascii=False))
+    else:
+        _run(ctx, command, dry_run=False)
+
+
+@datasource_app.command("schema")
+def datasource_schema(
+    ctx: typer.Context,
+    name: str,
+    check: bool = typer.Option(False, "--check", help="Check configured property names and types."),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+) -> None:
+    project = _config_from_context(ctx)
+    datasource = resolve_datasource(project, name)
+    command = render_datasource_schema(
+        datasource.id,
+        query_endpoint=datasource.query_endpoint,
+        notion_version=datasource.effective_notion_version(),
+        env=_command_env(project, workspace_id=resolve_workspace_id(project)),
+    )
+    if ctx.obj.dry_run_json:
+        plan = command_plan(_prepare_command(ctx, command))
+        plan.update(kind="schema", check=check)
+        typer.echo(json.dumps(plan, ensure_ascii=False))
+    elif dry_run or not check:
+        _run(ctx, command, dry_run=dry_run)
+    else:
+        report = check_schema(name, datasource, _require_json_output(ctx, command))
+        typer.echo(json.dumps(report, ensure_ascii=False))
+        if not report["valid"]:
+            typer.echo("Error: configured property mappings do not match the schema", err=True)
+            raise typer.Exit(code=1)
 
 
 @preset_app.command("run")
@@ -317,6 +406,7 @@ def preset_run(
     env = _command_env(project, workspace_id=preset.workspace_id)
     property_inputs = _property_inputs(preset.property_map, preset.property_types, fields)
     _run(
+        ctx,
         render_page_create(
             preset,
             {},
@@ -328,10 +418,68 @@ def preset_run(
     )
 
 
+@item_app.command("set")
+def item_set(
+    ctx: typer.Context,
+    page: str = typer.Argument(..., help="Configured page alias, page UUID, or Notion URL."),
+    datasource_name: str = typer.Option("items", "--datasource", help="Property mapping to use."),
+    author: str | None = typer.Option(None, "--author"),
+    title: str | None = typer.Option(None, "--title"),
+    status: str | None = typer.Option(None, "--status"),
+    score: int | None = typer.Option(None, "--score"),
+    tags: str | None = typer.Option(None, "--tags", help="Replace tags; empty string clears them."),
+    completed_date: str | None = typer.Option(None, "--date"),
+    project: str | None = typer.Option(None, "--project", help="Configured project page alias."),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+) -> None:
+    """Update only explicitly supplied item properties, without YouTube enrichment."""
+    values: dict[str, object] = {}
+    for name, value in (("author", author), ("title", title), ("status", status)):
+        if value is not None:
+            if not value.strip():
+                raise typer.BadParameter(f"--{name} must not be blank")
+            values[name] = value
+    if score is not None:
+        values["score"] = _score_value(score)
+    if tags is not None:
+        values["tags"] = list(dict.fromkeys(_split_tags(tags)))
+    if completed_date is not None:
+        values["date"] = _resolve_date(completed_date, done=False)
+    if project is not None:
+        values["project"] = project
+    if not values:
+        raise typer.BadParameter("provide at least one property to update")
+
+    config = _config_from_context(ctx)
+    datasource = resolve_datasource(config, datasource_name)
+    page_id = resolve_page_reference(config, page)
+    for name in values:
+        if name not in datasource.properties:
+            raise ConfigError(
+                f"datasource '{datasource_name}' has no property mapping for '{name}'"
+            )
+    if project is not None:
+        values["project"] = resolve_page(config, project).id
+
+    property_inputs = _property_inputs(datasource.properties, datasource.property_types, values)
+    env = _command_env(config, workspace_id=resolve_workspace_id(config))
+    _run(
+        ctx,
+        render_page_update(
+            page_id,
+            property_inputs,
+            notion_version=datasource.effective_notion_version(),
+            env=env,
+        ),
+        dry_run=dry_run,
+    )
+
+
 @item_app.command("add-youtube")
 def item_add_youtube(
     ctx: typer.Context,
     url: str,
+    author: str | None = typer.Option(None, "--author", help="Override the inferred author."),
     score: int | None = typer.Option(None, "--score"),
     project: str | None = typer.Option(None, "--project"),
     tags: str | None = typer.Option(None, "--tags"),
@@ -348,12 +496,18 @@ def item_add_youtube(
     if preset.datasource_id is None:
         raise ConfigError(f"preset '{preset_name}' does not resolve to a datasource")
 
+    if author is not None:
+        if not author.strip():
+            raise typer.BadParameter("--author must not be blank")
+        if "author" not in preset.property_map:
+            raise ConfigError(f"preset '{preset_name}' has no property mapping for 'author'")
+
     metadata = fetch_youtube_metadata(url, project_config.youtube)
     property_values: dict[str, object] = {
         "title": metadata.title,
         "link": metadata.url,
         "length": metadata.length,
-        "author": metadata.author,
+        "author": author if author is not None else metadata.author,
         "type": "Video",
     }
     if score_value := _score_value(score):
@@ -385,7 +539,7 @@ def item_add_youtube(
     )
 
     if not upsert:
-        _run(create_command, dry_run=dry_run)
+        _run(ctx, create_command, dry_run=dry_run)
         return
 
     link_property = preset.property_map.get("link")
@@ -405,13 +559,30 @@ def item_add_youtube(
         notion_version=preset.notion_version,
         env=env,
     )
+    if ctx.obj.dry_run_json:
+        commands = {"query": query_command, "update": update_command, "create": create_command}
+        typer.echo(
+            json.dumps(
+                {
+                    "version": 1,
+                    "kind": "upsert",
+                    "commands": {
+                        name: command_plan(_prepare_command(ctx, command))
+                        for name, command in commands.items()
+                    },
+                },
+                ensure_ascii=False,
+            )
+        )
+        return
     if dry_run:
         typer.echo(_upsert_plan(query_command, update_command, create_command))
         return
 
-    query_result = _require_json_output(query_command)
-    raw_results = query_result.get("results", [])
-    results = raw_results if isinstance(raw_results, list) else []
+    query_result = _require_json_output(ctx, query_command)
+    results = query_result.get("results")
+    if not isinstance(results, list):
+        raise RuntimeCommandError("page query response must include a results list")
     if results:
         first_result = results[0]
         if not isinstance(first_result, dict):
@@ -420,15 +591,16 @@ def item_add_youtube(
         if not isinstance(page_id, str) or not page_id:
             raise RuntimeCommandError("page query result did not include an id")
         update_result = _require_json_output(
+            ctx,
             render_page_update(
                 page_id,
                 property_inputs,
                 notion_version=preset.notion_version,
                 env=env,
-            )
+            ),
         )
         typer.echo(_page_summary(update_result))
         return
 
-    create_result = _require_json_output(create_command)
+    create_result = _require_json_output(ctx, create_command)
     typer.echo(_page_summary(create_result))

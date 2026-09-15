@@ -30,6 +30,7 @@ PropertyValueType = Literal[
 class NotionSettings(BaseModel):
     default_workspace: str
     notion_home: str | None = None
+    timeout_seconds: float = Field(default=60, gt=0, allow_inf_nan=False)
 
 
 class WorkspaceConfig(BaseModel):
@@ -95,8 +96,11 @@ def load_config(path: Path) -> ProjectConfig:
     if not path.exists():
         raise ConfigError(f"configuration file not found: {path}")
 
-    with path.open("rb") as handle:
-        raw: dict[str, Any] = tomllib.load(handle)
+    try:
+        with path.open("rb") as handle:
+            raw: dict[str, Any] = tomllib.load(handle)
+    except (OSError, ValueError) as exc:
+        raise ConfigError(f"cannot read configuration in {path}: {exc}") from exc
 
     try:
         return ProjectConfig.model_validate(raw)
@@ -146,3 +150,19 @@ def resolve_config_path(
         return local_path
 
     return user_config_path(active_env, home=home, platform=platform)
+
+
+def default_property_type(field_name: str) -> PropertyValueType:
+    defaults: dict[str, PropertyValueType] = {
+        "title": "title",
+        "link": "url",
+        "length": "rich_text",
+        "author": "rich_text",
+        "score": "select",
+        "type": "select",
+        "status": "status",
+        "date": "date",
+        "project": "relation",
+        "tags": "multi_select",
+    }
+    return defaults.get(field_name, "rich_text")
