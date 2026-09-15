@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from rich.text import Text
 from test_cli import write_full_config
 from typer.testing import CliRunner
 
@@ -115,11 +116,17 @@ def test_set_multiple_explicit_fields_and_clear_tags(config_path: Path) -> None:
         (["--author", "   "], "--author"),
     ],
 )
+@pytest.mark.parametrize("force_color", [False, True], ids=["plain", "color"])
 def test_set_rejects_invalid_input_without_execution(
     config_path: Path,
     options: list[str],
     message: str,
+    force_color: bool,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setattr("typer.rich_utils.FORCE_TERMINAL", force_color)
+    monkeypatch.setattr("typer.rich_utils.COLOR_SYSTEM", "standard" if force_color else None)
     with patch("notion_cli.exec.subprocess.run", side_effect=AssertionError("execution")):
         result = runner.invoke(
             app,
@@ -132,8 +139,10 @@ def test_set_rejects_invalid_input_without_execution(
                 *options,
             ],
         )
-    assert result.exit_code != 0
-    assert message in result.stderr
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    assert ("\x1b[" in result.stderr) is force_color
+    assert message in Text.from_ansi(result.stderr).plain
 
 
 def test_set_rejects_unmapped_field(config_path: Path) -> None:

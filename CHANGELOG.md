@@ -19,6 +19,8 @@ The format is based on Keep a Changelog, and this project follows Semantic Versi
 
 ### Fixed
 
+- validate CLI error text independently of ANSI styling, with plain and colored regression coverage
+
 - decode `ntn` output as UTF-8 to preserve Unicode on Windows
 
 - use `data_source_id` parents when creating pages for modern datasource aliases
