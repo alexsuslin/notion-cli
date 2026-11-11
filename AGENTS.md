@@ -6,3 +6,4 @@
 - Run `pytest -v`, `ruff check .`, and `mypy src` before claiming completion.
 - Prefer dry-run coverage for new CLI features before live execution support.
 - Keep `skills/notion-cli-agent/`, `docs/agent-cli.md`, and `README.md` in sync when agent-facing CLI behavior changes.
+- For continuing work or changing scope, read [the current handoff](docs/HANDOFF.md).
